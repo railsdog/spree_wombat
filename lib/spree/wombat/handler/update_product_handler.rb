@@ -7,8 +7,13 @@ module Spree
 
         def process
           id = params.delete(:id)
-          product = Spree::Variant.where(is_master: true, sku: params[:sku]).first.product
-          return response("Cannot find product with SKU #{params[:sku]}!", 500) unless product
+          variant = Variant.where(is_master: true, sku: params[:sku]).first
+
+          if variant.nil? || variant.product.nil?
+            return response("Cannot find product with SKU #{params[:sku]}!", 500)
+          end
+
+          product = variant.product
 
           # Disable the after_touch callback on taxons
           Spree::Product.skip_callback(:touch, :after, :touch_taxons)
@@ -30,9 +35,9 @@ module Spree
               response "Product #{@product.sku} updated"
             end
           else
-            response "Cannot update the product due to validation errors", 500
+            errors = @product.errors.full_messages.join("\n")
+            response "Product not valid. #{errors}", 500
           end
-
         end
 
         # the Spree::Product and Spree::Variant master
@@ -44,7 +49,7 @@ module Spree
 
           product
         end
-        
+
       end
     end
   end

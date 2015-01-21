@@ -2,7 +2,7 @@
 
 Connect your SpreeCommerce Storefront to Wombat, providing push API and webhook handlers
 
-[![Build Status](https://travis-ci.org/spree/spree_wombat.svg?branch=refactor-client-wombat-ruby)](https://travis-ci.org/spree/spree_wombat)
+[![Build Status](https://travis-ci.org/spree/spree_wombat.svg?branch=master)](https://travis-ci.org/spree/spree_wombat)
 
 ## Installation
 
@@ -78,6 +78,22 @@ Spree::Wombat::Config[:last_pushed_timestamps] = timestamps
 ```
 
 This will update the preference in the database and will use your updated timestamp for, in this case, 'Spree::Order'
+
+### WebhookController.error_notifier
+
+If you would like to forward WebhookController exceptions to an error
+notification tool you can configure the `WebhookController.error_notifier`
+property with an object that responds to `#call` and accepts the responder as an
+argument. e.g. with a proc:
+
+```ruby
+# in config/initializers/wombat.rb:
+Rails.application.config.to_prepare do
+  Spree::Wombat::WebhookController.error_notifier = ->(responder) do
+    Honeybadger.notify(responder.exception)
+  end
+end
+```
 
 ## Push to Wombat
 

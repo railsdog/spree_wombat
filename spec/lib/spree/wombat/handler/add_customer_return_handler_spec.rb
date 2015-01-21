@@ -1,9 +1,8 @@
 require 'spec_helper'
 
-shared_examples "receives the return items" do
-
+shared_examples "receives the return items" do |message=/Customer return \d+ was added/|
   it "succeeds" do
-    expect(responder.summary).to match /Customer return \d+ was added/
+    expect(responder.summary).to match message
     expect(responder.code).to eql 200
   end
 
@@ -28,7 +27,11 @@ shared_examples "receives the return items" do
 
   it "attempts to accept all of the return items" do
     accept_count = 0
-    Spree::ReturnItem.any_instance.stub(:attempt_accept) { accept_count += 1 }
+    original_method = Spree::ReturnItem.instance_method(:attempt_accept)
+    Spree::ReturnItem.any_instance.stub(:attempt_accept) do |return_item|
+      accept_count += 1
+      original_method.bind(return_item).call
+    end
     subject
     expect(accept_count).to eq 3
   end
@@ -112,13 +115,13 @@ module Spree
                 items: [
                   {
                     sku: variant_1.sku,
-                    quantity: 1,
+                    quantity: "1",
                     product_status: "GOOD",
                     order_number: order.number,
                   },
                   {
                     sku: variant_2.sku,
-                    quantity: 2,
+                    quantity: "2",
                     product_status: "DAMAGED",
                     order_number: order.number,
                   }
@@ -149,6 +152,15 @@ module Spree
               end
               it_behaves_like "receives the return items"
               it_behaves_like "does not attempt to refund the customer"
+            end
+
+            context "the customer return raises an IncompleteReimbursement error" do
+              before do
+                expect_any_instance_of(Spree::Reimbursement).to(
+                  receive(:perform!).and_raise(Spree::Reimbursement::IncompleteReimbursementError)
+                )
+              end
+              it_behaves_like "receives the return items", /Customer return \d+ processed but not fully reimbursed/
             end
           end
 
@@ -231,7 +243,9 @@ module Spree
           end
 
           context "there is a mix of created and new return items" do
-            let(:return_item) { order.inventory_units.last.current_or_new_return_item.tap(&:save) }
+            let(:return_item) do
+              order.inventory_units.order(:id).last.current_or_new_return_item.tap(&:save)
+            end
 
             before do
               rma.return_items << return_item
