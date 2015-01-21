@@ -39,7 +39,7 @@ module Spree
       end
 
       def shipping_method
-        object.shipping_method.try(:name)
+        object.shipping_method.try(:admin_name)
       end
 
       def placed_on
